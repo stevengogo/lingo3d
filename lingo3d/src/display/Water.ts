@@ -46,6 +46,16 @@ export default class Water extends VisibleObjectManager implements IWater {
         this.speedState.set(val)
     }
 
+
+    private geometryState = new Reactive(undefined)
+    public get geometry() {
+        return this.geometryState.get()
+    }
+
+    public set geometry(val) {
+        this.geometryState.set(val)
+    }
+
     public constructor() {
         super()
         this.rotationX = 270
@@ -56,10 +66,15 @@ export default class Water extends VisibleObjectManager implements IWater {
                 if (!normalMap) return
 
                 const isPlane = this.shapeState.get() === "plane"
-                const waterGeometry = isPlane ? planeGeometry : sphereGeometry
+                var waterGeometry = isPlane ? planeGeometry : sphereGeometry
 
                 const res = this.resolutionState.get()
                 const speed = this.speedState.get()
+                const geo = this.geometryState.get()
+
+                if (geo) {
+                    waterGeometry = geo;
+                }
 
                 const handle = new Cancellable()
                 const water = new Water(waterGeometry, {

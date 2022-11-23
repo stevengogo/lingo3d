@@ -11,7 +11,8 @@ export default interface IWater extends IVisibleObjectManager {
     shape: "plane" | "sphere"
     normalMap: string
     resolution: number
-    speed: number
+    speed: number,
+    geometry: any
 }
 
 export const waterSchema: Required<ExtractProps<IWater>> = {
@@ -19,7 +20,8 @@ export const waterSchema: Required<ExtractProps<IWater>> = {
     shape: String,
     normalMap: String,
     resolution: Number,
-    speed: Number
+    speed: Number,
+    geometry:Object
 }
 
 export const waterDefaults = extendDefaults<IWater>(
@@ -29,6 +31,7 @@ export const waterDefaults = extendDefaults<IWater>(
         normalMap: WATERNORMALS_URL,
         resolution: 512,
         speed: 1,
+        geometry: undefined,
         rotationX: 270
     },
     {
