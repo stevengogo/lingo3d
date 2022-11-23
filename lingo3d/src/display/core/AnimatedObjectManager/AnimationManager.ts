@@ -18,7 +18,7 @@ import IAnimationManager, {
 import Appendable from "../../../api/core/Appendable"
 import FoundManager from "../FoundManager"
 import { Point, Point3d } from "@lincode/math"
-import { DEFAULT_SPF } from "../../../globals"
+import { FRAME2SEC, SEC2FRAME } from "../../../globals"
 
 const targetMixerMap = new WeakMap<object, AnimationMixer>()
 const mixerActionMap = new WeakMap<AnimationMixer, AnimationAction>()
@@ -27,14 +27,13 @@ const mixerManagerMap = new WeakMap<AnimationMixer, AnimationManager>()
 const framesToKeyframeTrack = (
     targetName: string,
     property: string,
-    frames: Array<[number, number | Point | Point3d]>
-) => {
-    return new NumberKeyframeTrack(
+    frames: Record<number, number | Point | Point3d>
+) =>
+    new NumberKeyframeTrack(
         targetName + "." + property,
-        frames.map(([frameNum]) => frameNum * DEFAULT_SPF),
-        frames.map(([, frameValue]) => frameValue)
+        Object.keys(frames).map((frameNum) => Number(frameNum) * FRAME2SEC),
+        Object.values(frames)
     )
-}
 
 export default class AnimationManager
     extends Appendable
@@ -57,6 +56,8 @@ export default class AnimationManager
         this.pausedState.set(val)
     }
 
+    private mixer: AnimationMixer
+
     public constructor(
         public name: string,
         clip: AnimationClip | undefined,
@@ -69,11 +70,11 @@ export default class AnimationManager
         super()
         !serialized && nonSerializedAppendables.add(this)
 
-        const mixer = forceGet(
+        const mixer = (this.mixer = forceGet(
             targetMixerMap,
             target ?? this,
             () => new AnimationMixer(target as any)
-        )
+        ))
         this.createEffect(() => {
             if (this.pausedState.get()) return
 
@@ -121,13 +122,24 @@ export default class AnimationManager
             )
         }, [this.dataState.get])
 
+        let frame: number | undefined
         this.createEffect(() => {
             const clip = this.clipState.get()
             if (!clip) return
 
-            this.actionState.set(mixer.clipAction(clip))
+            const action = mixer.clipAction(clip)
+            this.actionState.set(action)
+
+            if (frame !== undefined) {
+                this.frame = frame
+                frame = undefined
+            }
 
             return () => {
+                frame = this.frame
+                mixer.setTime(0)
+                action.stop()
+                action.enabled = false
                 mixer.uncacheClip(clip)
             }
         }, [this.clipState.get])
@@ -155,16 +167,15 @@ export default class AnimationManager
 
             const prevAction = mixerActionMap.get(mixer)
             mixerActionMap.set(mixer, action)
-            if (prevAction && action !== prevAction) {
+            if (prevAction?.enabled && action !== prevAction)
                 action.crossFadeFrom(prevAction, 0.25, true)
-                action.time = 0
-            }
+
             action.clampWhenFinished = true
             action.enabled = true
             action.play()
 
             if (gotoFrame !== undefined) {
-                mixer.setTime(gotoFrame * DEFAULT_SPF)
+                mixer.setTime(gotoFrame * FRAME2SEC)
                 this.gotoFrameState.set(undefined)
                 return
             }
@@ -209,7 +220,7 @@ export default class AnimationManager
         this.dataState.set([val])
     }
 
-    public assignData(data: AnimationData) {
+    public mergeData(data: AnimationData) {
         const [prevData] = this.dataState.get()
         if (!prevData) {
             this.dataState.set([data])
@@ -219,7 +230,18 @@ export default class AnimationManager
         this.dataState.set([prevData])
     }
 
-    public gotoFrame(frame: number) {
+    public get duration() {
+        return this.clipState.get()?.duration ?? 0
+    }
+
+    public get totalFrames() {
+        return Math.ceil(this.duration * SEC2FRAME)
+    }
+
+    public set frame(frame: number) {
         this.gotoFrameState.set(frame)
+    }
+    public get frame() {
+        return Math.ceil(Math.min(this.mixer.time, this.duration) * SEC2FRAME)
     }
 }

@@ -17,6 +17,7 @@ import { Point } from "@lincode/math"
 import Timeline from "../../display/Timeline"
 import { setTimeline } from "../../states/useTimeline"
 import { setSceneGraphExpanded } from "../states/useSceneGraphExpanded"
+import mousePosition from "../utils/mousePosition"
 
 const traverseUp = (obj: Object3D, expandedSet: Set<Object3D>) => {
     expandedSet.add(obj)
@@ -46,24 +47,17 @@ const search = (n: string, target: Loaded | Appendable) => {
 }
 
 const SceneGraphContextMenu = () => {
-    const [position, setPosition] = useState<Point | undefined>(undefined)
+    const [position, setPosition] = useState<Point>()
     const [showSearch, setShowSearch] = useState(false)
     const [selectionTarget] = useSelectionTarget()
     const [[selectionFrozen]] = useSelectionFrozen()
 
     useEffect(() => {
-        let [clientX, clientY] = [0, 0]
-        const cb = (e: MouseEvent) =>
-            ([clientX, clientY] = [e.clientX, e.clientY])
-        document.addEventListener("mousemove", cb)
-
         const handle = onSelectionTarget(
-            ({ rightClick }) =>
-                rightClick && setPosition(new Point(clientX, clientY))
+            ({ rightClick }) => rightClick && setPosition(mousePosition)
         )
         return () => {
             handle.cancel()
-            document.removeEventListener("mousemove", cb)
         }
     }, [])
 
