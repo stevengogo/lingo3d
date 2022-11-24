@@ -15,9 +15,10 @@ import MenuItem from "../component/ContextMenu/MenuItem"
 import { useSelectionFrozen, useSelectionTarget } from "../states"
 import { Point } from "@lincode/math"
 import Timeline from "../../display/Timeline"
-import { setTimeline } from "../../states/useTimeline"
 import { setSceneGraphExpanded } from "../states/useSceneGraphExpanded"
 import mousePosition from "../utils/mousePosition"
+import { useTimelineData } from "../states/useTimelineData"
+import { setTimeline, getTimeline } from "../states/useTimeline"
 
 const traverseUp = (obj: Object3D, expandedSet: Set<Object3D>) => {
     expandedSet.add(obj)
@@ -48,9 +49,10 @@ const search = (n: string, target: Loaded | Appendable) => {
 
 const SceneGraphContextMenu = () => {
     const [position, setPosition] = useState<Point>()
-    const [showSearch, setShowSearch] = useState(false)
-    const [selectionTarget] = useSelectionTarget()
+    const [input, setInput] = useState<"search" | "timeline">()
+    const [selectionTarget, setSelectionTarget] = useSelectionTarget()
     const [[selectionFrozen]] = useSelectionFrozen()
+    const [[timelineData]] = useTimelineData()
 
     useEffect(() => {
         const handle = onSelectionTarget(
@@ -62,26 +64,39 @@ const SceneGraphContextMenu = () => {
     }, [])
 
     useEffect(() => {
-        !position && setShowSearch(false)
+        !position && setInput(undefined)
     }, [position])
 
     if (!position) return null
 
     return (
         <ContextMenu position={position} setPosition={setPosition}>
-            {showSearch ? (
+            {input ? (
                 <input
                     ref={(el) => el?.focus()}
                     style={{ all: "unset", padding: 6 }}
+                    placeholder={
+                        input === "search"
+                            ? "Search child"
+                            : "New timeline name"
+                    }
                     onKeyDown={(e) => {
                         e.stopPropagation()
                         if (e.key !== "Enter" && e.key !== "Escape") return
-                        e.key === "Enter" &&
-                            selectionTarget &&
-                            search(
-                                (e.target as HTMLInputElement).value,
-                                selectionTarget
-                            )
+                        if (e.key === "Enter" && selectionTarget) {
+                            const { value } = e.target as HTMLInputElement
+                            if (input === "search")
+                                search(value, selectionTarget)
+                            else if (input === "timeline") {
+                                const timeline = new Timeline()
+                                timeline.name = value
+                                timeline.data = {
+                                    [selectionTarget.uuid]: {}
+                                }
+                                setTimeline(timeline)
+                                setSelectionTarget(timeline)
+                            }
+                        }
                         setPosition(undefined)
                     }}
                 />
@@ -89,9 +104,30 @@ const SceneGraphContextMenu = () => {
                 <>
                     {isMeshItem(selectionTarget) && (
                         <>
-                            <MenuItem onClick={() => setShowSearch(true)}>
+                            <MenuItem onClick={() => setInput("search")}>
                                 Search children
                             </MenuItem>
+
+                            <MenuItem
+                                disabled={
+                                    !timelineData ||
+                                    selectionTarget.uuid in timelineData
+                                }
+                                onClick={() => {
+                                    const timeline = getTimeline()
+                                    timeline?.mergeData({
+                                        [selectionTarget.uuid]: {}
+                                    })
+                                    setPosition(undefined)
+                                }}
+                            >
+                                Add to timeline
+                            </MenuItem>
+
+                            <MenuItem onClick={() => setInput("timeline")}>
+                                Create timeline
+                            </MenuItem>
+
                             <MenuItem
                                 onClick={() => {
                                     selectionFrozen.has(selectionTarget)

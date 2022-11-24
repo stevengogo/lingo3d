@@ -1,4 +1,4 @@
-import { debounce } from "@lincode/utils"
+import { debounce, debounceTrailing } from "@lincode/utils"
 import { Pane } from "./tweakpane"
 import resetIcon from "./resetIcon"
 import Defaults, { defaultsOptionsMap } from "../../interface/utils/Defaults"
@@ -6,11 +6,11 @@ import getDefaultValue from "../../interface/utils/getDefaultValue"
 import { Cancellable } from "@lincode/promiselikes"
 import { isPoint } from "../../api/serializer/isPoint"
 import { MONITOR_INTERVAL } from "../../globals"
+import { emitEditorEdit } from "../../events/onEditorEdit"
 
 let skipApply = false
-
 let leading = true
-export const skipApplyValue = debounce(
+const skipApplyValue = debounce(
     () => {
         skipApply = leading
         leading = !leading
@@ -62,15 +62,11 @@ export default async (
             input.element.prepend(resetButton)
             resetButton.style.opacity = "0.1"
 
-            const updateResetButton = debounce(
-                () => {
-                    const unchanged = isEqual(params[key], paramsDefault[key])
-                    resetButton.style.opacity = unchanged ? "0.1" : "0.5"
-                    resetButton.style.cursor = unchanged ? "auto" : "pointer"
-                },
-                MONITOR_INTERVAL,
-                "trailing"
-            )
+            const updateResetButton = debounceTrailing(() => {
+                const unchanged = isEqual(params[key], paramsDefault[key])
+                resetButton.style.opacity = unchanged ? "0.1" : "0.5"
+                resetButton.style.cursor = unchanged ? "auto" : "pointer"
+            }, MONITOR_INTERVAL)
             updateResetButton()
 
             resetButton.onclick = () => {
@@ -80,7 +76,10 @@ export default async (
 
             input.on("change", ({ value }: any) => {
                 updateResetButton()
-                if (!skipApply) target[key] = value
+                if (skipApply) return
+                emitEditorEdit("start")
+                target[key] = value
+                emitEditorEdit("stop")
             })
             return [key, input] as const
         })

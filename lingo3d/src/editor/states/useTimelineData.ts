@@ -1,7 +1,5 @@
 import preactStore from "../utils/preactStore"
-import { AnimationData } from "../../api/serializer/types"
 import { createEffect } from "@lincode/reactivity"
-import { getTimeline } from "../../states/useTimeline"
 import Appendable from "../../api/core/Appendable"
 import { uuidMap } from "../../api/core/collections"
 import { onTransformControls } from "../../events/onTransformControls"
@@ -9,6 +7,9 @@ import { getTimelineFrame } from "./useTimelineFrame"
 import { forceGet, merge, unset } from "@lincode/utils"
 import { onTimelineClearKeyframe } from "../../events/onTimelineClearKeyframe"
 import { getTimelineLayer } from "./useTimelineLayer"
+import { onEditorEdit } from "../../events/onEditorEdit"
+import { AnimationData } from "../../interface/IAnimationManager"
+import { getTimeline } from "./useTimeline"
 
 const [useTimelineData, setTimelineData, getTimelineData] = preactStore<
     [AnimationData | undefined]
@@ -66,13 +67,10 @@ createEffect(() => {
     const instances: Array<any> = Object.keys(timelineData).map(
         (uuid) => uuidMap.get(uuid)!
     )
-    const handle = onTransformControls((val) => {
-        if (val === "start") {
-            for (const instance of instances) saveProperties(instance)
-            return
-        }
-        if (val !== "stop") return
-
+    const handleStart = () => {
+        for (const instance of instances) saveProperties(instance)
+    }
+    const handleFinish = () => {
         const changeData: AnimationData = {}
         for (const instance of instances)
             for (const [property, value] of diffProperties(instance))
@@ -87,30 +85,50 @@ createEffect(() => {
                     }
                 })
         Object.keys(changeData) && timeline.mergeData(changeData)
+    }
+
+    const handle0 = onTransformControls((val) => {
+        if (val === "start") handleStart()
+        else if (val === "stop") handleFinish()
+    })
+    const handle1 = onEditorEdit((val) => {
+        if (val === "start") handleStart()
+        else if (val === "stop") handleFinish()
     })
 
     return () => {
-        handle.cancel()
+        handle0.cancel()
+        handle1.cancel()
     }
 }, [getTimelineData])
 
-onTimelineClearKeyframe(() => {
+export const processKeyframe = (
+    cb: (
+        timelineData: AnimationData,
+        uuid: string,
+        property: string,
+        frame: string
+    ) => void,
+    skipRefresh?: boolean
+) => {
     const [timelineData] = getTimelineData()
     const timeline = getTimeline()
     if (!timelineData || !timeline) return
 
-    const frame = getTimelineFrame() + ""
-    if (frame === "0") return
-
     const layer = getTimelineLayer()!
+    const frame = getTimelineFrame() + ""
     const path = layer.split(" ")
 
     if (path.length === 1)
         for (const property of Object.keys(timelineData[layer]))
-            unset(timelineData, [layer, property, frame])
-    else {
-        path.push(frame)
-        unset(timelineData, path)
-    }
-    timeline.data = timelineData
-})
+            cb(timelineData, layer, property, frame)
+    else cb(timelineData, path[0], path[1], frame)
+
+    if (!skipRefresh) timeline.data = timelineData
+}
+
+onTimelineClearKeyframe(() =>
+    processKeyframe((timelineData, uuid, property, frame) =>
+        unset(timelineData, [uuid, property, frame])
+    )
+)

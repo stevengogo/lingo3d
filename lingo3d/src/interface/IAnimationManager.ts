@@ -4,8 +4,18 @@ import IAppendable, {
     appendableDefaults,
     appendableSchema
 } from "./IAppendable"
-import { AnimationData } from "../api/serializer/types"
 import Nullable from "./utils/Nullable"
+
+export type AnimationData = Record<
+    string, //uuid
+    Record<
+        string, //property name
+        Record<
+            number, //frame number
+            number //frame value
+        >
+    >
+>
 
 export default interface IAimationManager extends IAppendable {
     paused: boolean

@@ -1,7 +1,10 @@
-import { useEffect, useState } from "preact/hooks"
 import TitleBarButton from "../component/bars/TitleBarButton"
-import { useTimeline } from "../states"
-import { useTimelineFrame } from "../states/useTimelineFrame"
+import { useTimeline } from "../states/useTimeline"
+import {
+    decreaseTimelineFrame,
+    increaseTimelineFrame
+} from "../states/useTimelineFrame"
+import { useTimelinePaused } from "../states/useTimelinePaused"
 import NextFrameIcon from "./icons/NextFrameIcon"
 import PauseIcon from "./icons/PauseIcon"
 import PlayIcon from "./icons/PlayIcon"
@@ -9,13 +12,7 @@ import PrevFrameIcon from "./icons/PrevFrameIcon"
 
 const Controls = () => {
     const [timeline] = useTimeline()
-    const [paused, setPaused] = useState(true)
-    const [frame, setFrame] = useTimelineFrame()
-
-    useEffect(() => {
-        //@ts-ignore
-        timeline?.pausedState.get(setPaused)
-    }, [timeline])
+    const [paused] = useTimelinePaused()
 
     return (
         <div
@@ -31,31 +28,37 @@ const Controls = () => {
             {paused ? (
                 <TitleBarButton
                     disabled={!timeline}
-                    onClick={() => {
-                        if (timeline!.frame >= timeline!.totalFrames)
-                            timeline!.frame = 0
-                        timeline!.paused = false
-                    }}
+                    onClick={
+                        timeline
+                            ? () => {
+                                  if (timeline.frame >= timeline.totalFrames)
+                                      timeline.frame = 0
+                                  timeline.paused = false
+                              }
+                            : undefined
+                    }
                 >
                     <PlayIcon />
                 </TitleBarButton>
             ) : (
                 <TitleBarButton
                     disabled={!timeline}
-                    onClick={() => (timeline!.paused = true)}
+                    onClick={
+                        timeline ? () => (timeline.paused = true) : undefined
+                    }
                 >
                     <PauseIcon />
                 </TitleBarButton>
             )}
             <TitleBarButton
-                disabled={!timeline || frame < 1}
-                onClick={() => setFrame(frame - 1)}
+                disabled={!timeline}
+                onClick={decreaseTimelineFrame}
             >
                 <PrevFrameIcon />
             </TitleBarButton>
             <TitleBarButton
-                disabled={!timeline || frame >= timeline.totalFrames}
-                onClick={() => setFrame(frame + 1)}
+                disabled={!timeline}
+                onClick={increaseTimelineFrame}
             >
                 <NextFrameIcon />
             </TitleBarButton>
