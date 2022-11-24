@@ -1,10 +1,10 @@
 {
     "name": "ft3d",
     "version": "1.0.0",
-    "description": "Lingo3D is a React/Vue 3d game development framework that ships with a complete visual editor",
-    "repository": "https://github.com/lingo3d/lingo3d",
-    "homepage": "https://lingo3d.com",
-    "author": "Lingo3D",
+    "description": "ft3d is a React/Vue 3d game development framework that ships with a complete visual editor",
+    "repository": "https://github.com/stevengogo/lingo3d/lingo3d",
+    "homepage": "http://www.efrontop.cn",
+    "author": "ft3d",
     "license": "MIT",
     "keywords": [
         "ft3d",
